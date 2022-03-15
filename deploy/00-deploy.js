@@ -4,4 +4,4 @@ module.exports = async ({getNamedAccounts, deployments}) => {
     const {deployer} = await getNamedAccounts();
 	console.log("Deploying:", contract.address);
 };
-module.exports.tags = ['AstarWeb3Domain'];
+module.exports.tags = ['Web3Domains'];
