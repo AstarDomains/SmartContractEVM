@@ -2,7 +2,7 @@
 
 AstarWeb3Domains Smart Contract Deployment Supports EVM
 
-For documentation on the AstarWeb3Domains system, see astardomains.network/
+For documentation on the AstarWeb3Domains system, see https://astardomains.network/
 
 Please run the following steps:
 
