@@ -2064,308 +2064,29 @@ library EnumerableSet {
 
 pragma solidity ^0.8.0;
 
-abstract contract KeyStorage {
-    mapping(uint256 => string) private _keys;
-
-    function getKey(uint256 keyHash) public view returns (string memory) {
-        return _keys[keyHash];
-    }
-
-    function getKeys(uint256[] calldata hashes) public view returns (string[] memory values) {
-        values = new string[](hashes.length);
-        for (uint256 i = 0; i < hashes.length; i++) {
-            values[i] = getKey(hashes[i]);
-        }
-    }
-
-    function addKey(string memory key) external {
-        _addKey(uint256(keccak256(abi.encodePacked(key))), key);
-    }
-
-    function _existsKey(uint256 keyHash) internal view returns (bool) {
-        return bytes(_keys[keyHash]).length > 0;
-    }
-
-    function _addKey(uint256 keyHash, string memory key) internal {
-        if (!_existsKey(keyHash)) {
-            _keys[keyHash] = key;
-        }
-    }
-}
-
-pragma solidity ^0.8.0;
-
-interface IRecordReader {
-    /**
-     * @dev Function to get record.
-     * @param key The key to query the value of.
-     * @param tokenId The token id to fetch.
-     * @return The value string.
-     */
-    function get(string calldata key, uint256 tokenId) external view returns (string memory);
-
-    /**
-     * @dev Function to get multiple record.
-     * @param keys The keys to query the value of.
-     * @param tokenId The token id to fetch.
-     * @return The values.
-     */
-    function getMany(string[] calldata keys, uint256 tokenId) external view returns (string[] memory);
-
-    /**
-     * @dev Function get value by provied key hash.
-     * @param keyHash The key to query the value of.
-     * @param tokenId The token id to set.
-     */
-    function getByHash(uint256 keyHash, uint256 tokenId) external view returns (string memory key, string memory value);
-
-    /**
-     * @dev Function get values by provied key hashes.
-     * @param keyHashes The key to query the value of.
-     * @param tokenId The token id to set.
-     */
-    function getManyByHash(uint256[] calldata keyHashes, uint256 tokenId)
-        external
-        view
-        returns (string[] memory keys, string[] memory values);
-}
-
-pragma solidity ^0.8.0;
-
-
-interface IRecordStorage is IRecordReader {
-    event Set(uint256 indexed tokenId, string indexed keyIndex, string indexed valueIndex, string key, string value);
-
-    event NewKey(uint256 indexed tokenId, string indexed keyIndex, string key);
-
-    event ResetRecords(uint256 indexed tokenId);
-
-    /**
-     * @dev Set record by key
-     * @param key The key set the value of
-     * @param value The value to set key to
-     * @param tokenId ERC-721 token id to set
-     */
-    function set(
-        string calldata key,
-        string calldata value,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Set records by keys
-     * @param keys The keys set the values of
-     * @param values Records values
-     * @param tokenId ERC-721 token id of the domain
-     */
-    function setMany(
-        string[] memory keys,
-        string[] memory values,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Set record by key hash
-     * @param keyHash The key hash set the value of
-     * @param value The value to set key to
-     * @param tokenId ERC-721 token id to set
-     */
-    function setByHash(
-        uint256 keyHash,
-        string calldata value,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Set records by key hashes
-     * @param keyHashes The key hashes set the values of
-     * @param values Records values
-     * @param tokenId ERC-721 token id of the domain
-     */
-    function setManyByHash(
-        uint256[] calldata keyHashes,
-        string[] calldata values,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Reset all domain records and set new ones
-     * @param keys New record keys
-     * @param values New record values
-     * @param tokenId ERC-721 token id of the domain
-     */
-    function reconfigure(
-        string[] memory keys,
-        string[] memory values,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Function to reset all existing records on a domain.
-     * @param tokenId ERC-721 token id to set.
-     */
-    function reset(uint256 tokenId) external;
-}
-
-pragma solidity ^0.8.0;
-
-
-abstract contract RecordStorage is KeyStorage, IRecordStorage {
-    /// @dev mapping of presetIds to keyIds to values
-    mapping(uint256 => mapping(uint256 => string)) internal _records;
-
-    /// @dev mapping of tokenIds to presetIds
-    mapping(uint256 => uint256) internal _tokenPresets;
-
-    function get(string calldata key, uint256 tokenId) external view override returns (string memory value) {
-        value = _get(key, tokenId);
-    }
-
-    function getMany(string[] calldata keys, uint256 tokenId) external view override returns (string[] memory values) {
-        values = new string[](keys.length);
-        for (uint256 i = 0; i < keys.length; i++) {
-            values[i] = _get(keys[i], tokenId);
-        }
-    }
-
-    function getByHash(uint256 keyHash, uint256 tokenId)
-        external
-        view
-        override
-        returns (string memory key, string memory value)
-    {
-        (key, value) = _getByHash(keyHash, tokenId);
-    }
-
-    function getManyByHash(uint256[] calldata keyHashes, uint256 tokenId)
-        external
-        view
-        override
-        returns (string[] memory keys, string[] memory values)
-    {
-        keys = new string[](keyHashes.length);
-        values = new string[](keyHashes.length);
-        for (uint256 i = 0; i < keyHashes.length; i++) {
-            (keys[i], values[i]) = _getByHash(keyHashes[i], tokenId);
-        }
-    }
-
-    function _presetOf(uint256 tokenId) internal view virtual returns (uint256) {
-        return _tokenPresets[tokenId] == 0 ? tokenId : _tokenPresets[tokenId];
-    }
-
-    function _set(
-        string calldata key,
-        string calldata value,
-        uint256 tokenId
-    ) internal {
-        uint256 keyHash = uint256(keccak256(abi.encodePacked(key)));
-        _addKey(keyHash, key);
-        _set(keyHash, key, value, tokenId);
-    }
-
-    function _setMany(
-        string[] calldata keys,
-        string[] calldata values,
-        uint256 tokenId
-    ) internal {
-        for (uint256 i = 0; i < keys.length; i++) {
-            _set(keys[i], values[i], tokenId);
-        }
-    }
-
-    function _setByHash(
-        uint256 keyHash,
-        string calldata value,
-        uint256 tokenId
-    ) internal {
-        require(_existsKey(keyHash), 'RecordStorage: KEY_NOT_FOUND');
-        _set(keyHash, getKey(keyHash), value, tokenId);
-    }
-
-    function _setManyByHash(
-        uint256[] calldata keyHashes,
-        string[] calldata values,
-        uint256 tokenId
-    ) internal {
-        for (uint256 i = 0; i < keyHashes.length; i++) {
-            _setByHash(keyHashes[i], values[i], tokenId);
-        }
-    }
-
-    function _reconfigure(
-        string[] calldata keys,
-        string[] calldata values,
-        uint256 tokenId
-    ) internal {
-        _reset(tokenId);
-        _setMany(keys, values, tokenId);
-    }
-
-    function _reset(uint256 tokenId) internal {
-        _tokenPresets[tokenId] = uint256(keccak256(abi.encodePacked(_presetOf(tokenId))));
-        emit ResetRecords(tokenId);
-    }
-
-    function _get(string memory key, uint256 tokenId) private view returns (string memory) {
-        return _get(uint256(keccak256(abi.encodePacked(key))), tokenId);
-    }
-
-    function _getByHash(uint256 keyHash, uint256 tokenId)
-        private
-        view
-        returns (string memory key, string memory value)
-    {
-        key = getKey(keyHash);
-        value = _get(keyHash, tokenId);
-    }
-
-    function _get(uint256 keyHash, uint256 tokenId) private view returns (string memory) {
-        return _records[_presetOf(tokenId)][keyHash];
-    }
-
-    function _set(
-        uint256 keyHash,
-        string memory key,
-        string memory value,
-        uint256 tokenId
-    ) private {
-        if (bytes(_records[_presetOf(tokenId)][keyHash]).length == 0) {
-            emit NewKey(tokenId, key, key);
-        }
-
-        _records[_presetOf(tokenId)][keyHash] = value;
-        emit Set(tokenId, key, value, key, value);
-    }
-}
-
-pragma solidity ^0.8.0;
-
-contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordStorage
+contract AstarWeb3Domain is ERC721, ERC721Enumerable, AdminControl 
 {
-	using SafeMath for uint256;
-	 
 	using EnumerableSet for EnumerableSet.UintSet;  
 	
 	event NewURI(uint256 indexed tokenId, string tokenUri);
+	
+    event NewRouter(uint256 indexed tokenId, address indexed router);
+	
+    event NewResolver(uint256 indexed tokenId, address indexed resolver);
 		
 	mapping (uint256 => EnumerableSet.UintSet) private _subTokens;
 
 	mapping (uint256 => string) public _tokenURIs;
-	
-	mapping(address => uint256) private _tokenReverses;
 
-    mapping(uint256 => string) private _tlds;
+    mapping (uint256 => address) internal _tokenResolvers;
 
 	string private _nftBaseURI = "";
 	
+	string private _TLD = "";
+	
 	bool public _saleIsActive = true;
 
-	uint256 private _price = 1 ether;
-	
-	uint256 private _3chartimes = 10;
-	
-	uint256 private _4chartimes = 5;
+	uint256 private _price = 1000000000000000000;
 	
     modifier onlyApprovedOrOwner(uint256 tokenId) {
         require(
@@ -2374,67 +2095,16 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
         _;
     }
 
-    constructor() ERC721("Astar Web3 Domains (.astr)", "ANWD") {
+    constructor() ERC721("Astar Web3 Domain (.astr)", "ANWD") {
 		
 	}
-	
-	
-    function isApprovedOrOwner(address account, uint256 tokenId) external view returns(bool)  {
-        return _isApprovedOrOwner(account, tokenId);
-    }
-	
-	
-	function getOwner(string memory domain) external view returns (address)  {
-		string memory _domain = StringUtil.toLower(domain);
-	    uint256 tokenId = uint256(keccak256(abi.encodePacked(_domain)));
-        return ownerOf(tokenId);
-    }
-	
-	function getDomainbyAddress(address account) external view returns (uint256[] memory tokenIds,  string[] memory domains)  {
-		uint256 _balance = balanceOf(account);
-        require(_balance > 0, "");	
-        uint256[] memory _tokenIds = new uint256[](_balance);
-        string[] memory _domains = new string[](_balance);
-        for (uint256 i = 0; i < _balance; i++) {
-            uint256 tokenId = tokenOfOwnerByIndex(account, i);
-            string memory domain = _tokenURIs[tokenId];
-            _tokenIds[i] = tokenId;
-            _domains[i] = domain;
-        }
-        tokenIds = _tokenIds;
-        domains = _domains;
-    }
-	
-		
-	function exists(uint256 tokenId) external view returns (bool) {
-        return _exists(tokenId);
-    }
-
 
 	function getPrice() public view returns (uint256) {
         return _price;
     }
 	
-	function getPrice3Char() public view returns (uint256) {
-        return getPrice().mul(_3chartimes);
-    }
-	
-	function getPrice4Char() public view returns (uint256) {
-        return getPrice().mul(_4chartimes);
-    }
-	
-
-	function get3charTimes() public view returns (uint256) {
-        return _3chartimes;
-    }
-	
-	function get4charTimes() public view returns (uint256) {
-        return _4chartimes;
-    }
-	
-	function setTimes(uint256 __3chartime, uint256 __4chartime) public onlyOwner {
-        _3chartimes = __3chartime;
-		_4chartimes = __4chartime;
+	function getTLD() public view returns (string memory) {
+        return _TLD;
     }
 	
 	function setPrice(uint256 price) public onlyOwner {
@@ -2442,18 +2112,8 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
     }
 	
 	function setTLD(string memory _tld) public onlyOwner {
-        uint256 tokenId = genTokenId(_tld);
-		_tlds[tokenId] = _tld;
+        _TLD = _tld;
     }
-	
-	function isTLD(string memory _tld) public view returns (bool) {
-		bool isExist = false;
-        uint256 tokenId = genTokenId(_tld);
-		if (bytes(_tlds[tokenId]).length != 0){
-            isExist = true;
-        }
-		return isExist;
-	}
 	
 	function setSaleState() public onlyOwner {
         _saleIsActive = !_saleIsActive;
@@ -2484,53 +2144,45 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
         // If there is a baseURI but no tokenURI, concatenate the tokenID to the baseURI.
         return string(abi.encodePacked(baseURI, tokenId));
     }
-	
-	   
 
-	function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal virtual {
-        require(_exists(tokenId), "ERC721Metadata: URI set of nonexistent token");
-        _tokenURIs[tokenId] = _tokenURI;
+	function getOwner(string memory domain) external view returns (address)  {
+		string memory _domain = StringUtil.toLower(domain);
+	    uint256 tokenId = uint256(keccak256(abi.encodePacked(_domain)));
+        return ownerOf(tokenId);
     }
 	
-
-	function buyDomain(string memory domain, string memory tld) external payable 
+	function buyDomain(string memory domain) external payable 
 	{
 		require(_saleIsActive, "Sale must be active to buy");
 		
-		require(bytes(tld).length != 0, "Top level domain must be non-empty");
+		require(bytes(domain).length != 0, "Domain must be non-empty");	
 		
-		require(isTLD(tld) == true, "Top level domain not exist");
+		//require(bytes(_TLD).length != 0, "Top level domain must be non-empty");
 		
-		uint256 _length = bytes(domain).length;
-		
-		require(_length != 0, "Domain must be non-empty");	
-		
-		require(_length >= 3, "Domain requires at least 3 characters");	
-		
-		require(StringUtil.dotCount(domain) == 0, "Domain not support");
-	
-		if (_length == 3)
-		{
-			require(msg.value >= getPrice().mul(_3chartimes), "Insufficient Token or Token value sent is not correct");
-		}
-		
-		if (_length == 4)
-		{
-			require(msg.value >= getPrice().mul(_4chartimes), "Insufficient Token or Token value sent is not correct");
-		}
-		
-		if (_length >= 5)
-		{
-			require(msg.value >= getPrice(), "Insufficient Token or Token value sent is not correct");
-		}
-		
+		require(msg.value >= getPrice(), "Insufficient Token or Token value sent is not correct");
+
 		string memory _domain = StringUtil.toLower(domain);
 		
-		string memory _tld = StringUtil.toLower(tld);
+		uint256 count = StringUtil.dotCount(_domain);
 		
-		_domain = string(abi.encodePacked(_domain, ".", _tld));
+		if (count > 1)
+		{
+			require(count <= 1, "Domain not support");	
+		}
 		
-		uint256 tokenId = genTokenId(_domain);
+		if (count == 0)
+		{
+			require(bytes(_TLD).length != 0, "Top level domain must be non-empty");
+			
+			int index = StringUtil.indexOf(_domain, _TLD);
+			
+			if (index == -1)
+			{
+				_domain = string(abi.encodePacked(_domain, _TLD));
+			}
+		}
+		
+		uint256 tokenId = uint256(keccak256(abi.encodePacked(_domain)));
 		
 		require (!_exists(tokenId), "Domain already exists");
 		
@@ -2541,27 +2193,33 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
 	   emit NewURI(tokenId, _domain);
     }
 
-	function registerDomain(address to, string memory domain, string memory tld) external onlyOwner 
-	{
-		require(to != address(0), "To address is null");
+	function registerDomain(address to, string memory domain) external onlyOwner {
+		require(to != address(0));
 		
-		require(bytes(tld).length != 0, "Top level domain must be non-empty");
+		require(bytes(domain).length != 0, "Domain must be non-empty");
 		
-		require(isTLD(tld) == true, "Top level domain not exist");
-		
-		require(bytes(domain).length != 0, "Domain must be non-empty");	
-		
-		require(bytes(domain).length >= 3, "Domain requires at least 3 characters");	
-		
-		require(StringUtil.dotCount(domain) == 0, "Domain not support");
-
 		string memory _domain = StringUtil.toLower(domain);
-
-		string memory _tld = StringUtil.toLower(tld);
 		
-		_domain = string(abi.encodePacked(_domain, ".", _tld));
+		uint256 count = StringUtil.dotCount(_domain);
+		
+		if (count > 1)
+		{
+			require(count <= 1, "Domain not support");	
+		}
+		
+		if (count == 0)
+		{
+			require(bytes(_TLD).length != 0, "Top level domain must be non-empty");
+			
+			int index = StringUtil.indexOf(_domain, _TLD);
+			
+			if (index == -1)
+			{
+				_domain = string(abi.encodePacked(_domain, _TLD));
+			}
+		}
 
-		uint256 tokenId = genTokenId(_domain);
+		uint256 tokenId = uint256(keccak256(abi.encodePacked(_domain)));
 		
 		require (!_exists(tokenId), "Domain already exists");
 		
@@ -2571,40 +2229,11 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
 	   
 	   emit NewURI(tokenId, _domain);
     }
-
-	function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public virtual override(IERC721, ERC721)  {
-
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
-		
-		_reset(tokenId);
-		
-        _transfer(from, to, tokenId);
-    }
-
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public virtual override(IERC721, ERC721)  {
-        safeTransferFrom(from, to, tokenId, "");
-    }
-
-
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes memory _data
-    ) public virtual override(IERC721, ERC721) {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
-		
-		_reset(tokenId);
-		
-        _safeTransfer(from, to, tokenId, _data);
+	
+    function registerSubDomain(address to, uint256 tokenId, string memory sub) external 
+        onlyApprovedOrOwner(tokenId) 
+    {
+        _safeMintSubDomain(to, tokenId, sub, "");
     }
 		
 	function burn(uint256 tokenId) public virtual {
@@ -2614,64 +2243,63 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
             delete _tokenURIs[tokenId];
         }
 		
-		if (_tokenReverses[_msgSender()] != 0) {
-            delete _tokenReverses[_msgSender()];
+		if (_tokenResolvers[tokenId] != address(0)) {
+            delete _tokenResolvers[tokenId];
         }
 		
-		_reset(tokenId);
-
         _burn(tokenId);
+    }
+
+
+    function isApprovedOrOwner(address account, uint256 tokenId) external view returns(bool)  {
+        return _isApprovedOrOwner(account, tokenId);
     }
 
     function setOwner(address to, uint256 tokenId) external onlyApprovedOrOwner(tokenId) {
         _transfer(ownerOf(tokenId), to, tokenId);
     }
 	
-	/**
-     * Begin: set and get Reverses
-     */
-	function reverseOf(address account) public view returns (string memory){
-        uint256 tokenId = _tokenReverses[account];
-        require(tokenId != 0, 'ReverseResolver: REVERSE_RECORD_IS_EMPTY');
-        require(_isApprovedOrOwner(account, tokenId), 'ReverseResolver: ACCOUNT_IS_NOT_APPROVED_OR_OWNER');
-        return _tokenURIs[tokenId];
+	function exists(uint256 tokenId) external view returns (bool) {
+        return _exists(tokenId);
     }
-	
-	function setReverse(uint256 tokenId) public {
-        address _sender = _msgSender();
-        require(_isApprovedOrOwner(_sender, tokenId), 'ReverseResolver: SENDER_IS_NOT_APPROVED_OR_OWNER');
-        _tokenReverses[_sender] = tokenId;
+
+    function setResolver(uint256 tokenId, address resolver) external onlyApprovedOrOwner(tokenId) {
+        _setResolver(tokenId, resolver);
     }
-	
-	function setReverse(string memory domain) public {
-		uint256 tokenId = genTokenId(domain);
-        address _sender = _msgSender();
-        require(_isApprovedOrOwner(_sender, tokenId), 'ReverseResolver: SENDER_IS_NOT_APPROVED_OR_OWNER');
-        _tokenReverses[_sender] = tokenId;
+
+    function resolverOf(uint256 tokenId) external view returns (address) {
+        address resolver = _tokenResolvers[tokenId];
+        require (resolver != address(0));
+        return resolver;
     }
-	
-	function removeReverse() public {
-        address _sender = _msgSender();
-        uint256 tokenId = _tokenReverses[_sender];
-        require(tokenId != 0, 'ReverseResolver: REVERSE_RECORD_IS_EMPTY');
-        delete _tokenReverses[_sender];
-    }
-	/**
-     * End: set and get Reverses
-     */
-		
-    function registerSubDomain(address to, uint256 tokenId, string memory sub) external 
-        onlyApprovedOrOwner(tokenId) 
-    {
-        _safeMintSubDomain(to, tokenId, sub, "");
-    }
-	
-    function burnSubDomain(uint256 tokenId, string memory sub) external onlyApprovedOrOwner(tokenId) 
-	{
+    
+    function burnSubDomain(uint256 tokenId, string memory sub) external onlyApprovedOrOwner(tokenId) {
         _burnSubDomain(tokenId, sub);
     }
+
 	
-	 function _safeMintSubDomain(address to, uint256 tokenId, string memory sub, bytes memory _data) internal {
+	function genTokenId(string memory label) public pure returns(uint256)  {
+        require (bytes(label).length != 0);
+        return uint256(keccak256(abi.encodePacked(label)));
+    }
+
+   function subTokenIdCount(uint256 tokenId) public view returns (uint256) {
+        require (_exists(tokenId));
+        return _subTokens[tokenId].length();
+    }
+	
+	function subTokenIdByIndex(uint256 tokenId, uint256 index) public view returns (uint256) {
+        require (subTokenIdCount(tokenId) > index);
+        return _subTokens[tokenId].at(index);
+    }
+    
+  
+	
+	function withdraw() external payable onlyOwner {
+        require(payable(msg.sender).send(address(this).balance));
+    }
+	
+    function _safeMintSubDomain(address to, uint256 tokenId, string memory sub, bytes memory _data) internal {
 		require(to != address(0));
         require (bytes(sub).length != 0);
         require (StringUtil.dotCount(sub) == 0);
@@ -2701,6 +2329,11 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
         emit NewURI(_newTokenId, string(_newUri));
     }
 
+    /**
+     * @dev Burn the tokenURI according the token ID,
+     * @param tokenId the root tokenId of a tokenURI, 
+     * @param sub the label of a tokenURI should be burn
+     */
     function _burnSubDomain(uint256 tokenId, string memory sub) internal {
         string memory _sub = StringUtil.toLower(sub);
 		
@@ -2709,6 +2342,10 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
 		uint256 _newTokenId = genTokenId(string(_newUri));
         // remove sub tokenIds itself
         _subTokens[tokenId].remove(_newTokenId);
+
+        if (_tokenResolvers[tokenId] != address(0)) {
+            delete _tokenResolvers[tokenId];
+        }
 		
 		if (bytes(_tokenURIs[_newTokenId]).length != 0) {
             delete _tokenURIs[_newTokenId];
@@ -2717,24 +2354,15 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
         super._burn(_newTokenId);
     }
 
-    function subTokenIdCount(uint256 tokenId) public view returns (uint256) {
+    function _setResolver(uint256 tokenId, address resolver) internal {
         require (_exists(tokenId));
-        return _subTokens[tokenId].length();
+        _tokenResolvers[tokenId] = resolver;
+        emit NewResolver(tokenId, resolver);
     }
 	
-	function subTokenIdByIndex(uint256 tokenId, uint256 index) public view returns (uint256) {
-        require (subTokenIdCount(tokenId) > index);
-        return _subTokens[tokenId].at(index);
-    }
-	
-	function genTokenId(string memory label) public pure returns(uint256)  {
-        require (bytes(label).length != 0);
-        return uint256(keccak256(abi.encodePacked(label)));
-    }
-
-    
-	function withdraw() external payable onlyOwner {
-        require(payable(msg.sender).send(address(this).balance));
+	function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal virtual {
+        require(_exists(tokenId), "ERC721Metadata: URI set of nonexistent token");
+        _tokenURIs[tokenId] = _tokenURI;
     }
 	
 	function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
@@ -2744,54 +2372,4 @@ contract DomainChainNetwork is ERC721, ERC721Enumerable, AdminControl, RecordSto
 	function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {
 		return super.supportsInterface(interfaceId);
 	}
-	
-	/**
-     * Begin: working with metadata like: avatar, cover, email, phone, address, social ...
-     */
-	function set(
-        string calldata key,
-        string calldata value,
-        uint256 tokenId
-    ) external onlyApprovedOrOwner(tokenId)  {
-        _set(key, value, tokenId);
-    }
-
-    function setMany(
-        string[] calldata keys,
-        string[] calldata values,
-        uint256 tokenId
-    ) external onlyApprovedOrOwner(tokenId)  {
-        _setMany(keys, values, tokenId);
-    }
-
-    function setByHash(
-        uint256 keyHash,
-        string calldata value,
-        uint256 tokenId
-    ) external override onlyApprovedOrOwner(tokenId)  {
-        _setByHash(keyHash, value, tokenId);
-    }
-
-    function setManyByHash(
-        uint256[] calldata keyHashes,
-        string[] calldata values,
-        uint256 tokenId
-    ) external override onlyApprovedOrOwner(tokenId)  {
-        _setManyByHash(keyHashes, values, tokenId);
-    }
-
-    function reconfigure(
-        string[] calldata keys,
-        string[] calldata values,
-        uint256 tokenId
-    ) external override onlyApprovedOrOwner(tokenId) {
-        _reconfigure(keys, values, tokenId);
-    }
-
-    function reset(uint256 tokenId) external override onlyApprovedOrOwner(tokenId) {
-        _reset(tokenId);
-    }
-	/**
-     * End: metadata
-     */
 }
