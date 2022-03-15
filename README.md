@@ -13,7 +13,9 @@ Hardhat is used through a local installation in your project. This way your envi
 
 To install it, you need to create an npm project by going to an empty folder, running npm init, and following its instructions. Once your project is ready, you should run
 
+```
 $ npm install --save-dev hardhat
+```
 
 To use your local installation of Hardhat, you need to use npx to run it (i.e. npx hardhat).
 
@@ -25,13 +27,21 @@ Next, if you take a look at contracts/, you should be able to find Web3Domains.s
 
 To compile it, simply run:
 
+```
 npx hardhat compile
+```
 
 C. Deploying your contracts:
 
 Next, to deploy the contract we will use a Hardhat script. Inside scripts/ you will find Web3Domains.js
 
-Run it with npx hardhat run scripts/sample-script.js
+Run it with npx hardhat run scripts/Web3Domains.js
 
+```
 $ npx hardhat run scripts/Web3Domains.js
+```
+
 Contract deployed to: 0x5FbDB2315678afecb567f032d93F042f64180aa3
+
+Well done!!
+
