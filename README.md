@@ -1,4 +1,4 @@
-# Official Astar Web3 Domain Smart Contracts
+# Official Astar Web3 Domains Smart Contracts
 
 AstarWeb3Domains Smart Contract Deployment Supports EVM
 
