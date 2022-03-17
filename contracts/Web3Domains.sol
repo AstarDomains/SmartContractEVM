@@ -2341,7 +2341,44 @@ abstract contract RecordStorage is KeyStorage, IRecordStorage {
 
 pragma solidity ^0.8.0;
 
-contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
+abstract contract WhiteList is AdminControl {
+
+    mapping(address => uint8) private _whiteList;
+	
+	bool public isWhiteListActive = false;
+
+    function setWhiteListActive(bool _isWhiteListActive) external onlyOwner {
+        isWhiteListActive = _isWhiteListActive;
+    }
+
+    function addWhiteLists(address[] calldata addresses, uint8 numbers) external onlyMinterController {
+        for (uint256 i = 0; i < addresses.length; i++) 
+		{
+            _whiteList[addresses[i]] = numbers;
+        }
+    }
+	
+	function addWhiteList(address _address, uint8 numbers) external onlyMinterController {
+        _whiteList[_address] = numbers;
+    }
+	
+	function numberInWhiteList(address addr) external view returns (uint8) {
+        return _whiteList[addr];
+    }
+	
+	function chkInWhiteList(address addr) external view returns (bool) {
+		uint8 _num = _whiteList[addr];
+		bool _isOk = false;
+		if (_num > 0){
+			_isOk = true;
+		}
+        return _isOk;
+    }
+}
+
+pragma solidity ^0.8.0;
+
+contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage, WhiteList
 {
 	using SafeMath for uint256;
 	 
@@ -2360,8 +2397,12 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 	string private _nftBaseURI = "";
 	
 	bool public _saleIsActive = true;
+	
+	bool private _saleTwoCharIsActive = false;
 
 	uint256 private _price = 1 ether;
+	
+	uint256 private _2chartimes = 100;
 	
 	uint256 private _3chartimes = 10;
 	
@@ -2415,6 +2456,10 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
         return _price;
     }
 	
+	function getPrice2Char() public view returns (uint256) {
+        return getPrice().mul(_2chartimes);
+    }
+	
 	function getPrice3Char() public view returns (uint256) {
         return getPrice().mul(_3chartimes);
     }
@@ -2423,7 +2468,10 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
         return getPrice().mul(_4chartimes);
     }
 	
-
+	function get2charTimes() public view returns (uint256) {
+        return _2chartimes;
+    }
+	
 	function get3charTimes() public view returns (uint256) {
         return _3chartimes;
     }
@@ -2432,13 +2480,18 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
         return _4chartimes;
     }
 	
-	function setTimes(uint256 __3chartime, uint256 __4chartime) public onlyOwner {
-        _3chartimes = __3chartime;
-		_4chartimes = __4chartime;
+	function setTimes(uint256 _2chartimenew, uint256 _3chartimenew, uint256 _4chartimenew) public onlyOwner {
+		_2chartimes = _2chartimenew;
+        _3chartimes = _3chartimenew;
+		_4chartimes = _4chartimenew;
     }
 	
 	function setPrice(uint256 price) public onlyOwner {
         _price = price;
+    }
+	
+	function setSaleStateTwoChar() public onlyOwner {
+        _saleTwoCharIsActive = !_saleTwoCharIsActive;
     }
 	
 	function setTLD(string memory _tld) public onlyOwner {
@@ -2501,13 +2554,23 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 		
 		require(isTLD(tld) == true, "Top level domain not exist");
 		
+		require(StringUtil.dotCount(domain) == 0, "Domains cannot contain dot");
+		
 		uint256 _length = bytes(domain).length;
 		
 		require(_length != 0, "Domain must be non-empty");	
 		
-		require(_length >= 3, "Domain requires at least 3 characters");	
+		require(_length >= 2, "Domain requires at least 2 characters");	
 		
-		require(StringUtil.dotCount(domain) == 0, "Domain not support");
+	    // Check WhiteList
+		
+		
+		if (_length == 2)
+		{
+			require(_saleTwoCharIsActive, "2 Character domain names need to be allowed to buy");
+			
+			require(msg.value >= getPrice().mul(_2chartimes), "Insufficient Token or Token value sent is not correct");
+		}
 	
 		if (_length == 3)
 		{
@@ -2541,7 +2604,7 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 	   emit NewURI(tokenId, _domain);
     }
 
-	function registerDomain(address to, string memory domain, string memory tld) external onlyOwner 
+	function registerDomain(address to, string memory domain, string memory tld) external onlyMinterController 
 	{
 		require(to != address(0), "To address is null");
 		
@@ -2550,8 +2613,6 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 		require(isTLD(tld) == true, "Top level domain not exist");
 		
 		require(bytes(domain).length != 0, "Domain must be non-empty");	
-		
-		require(bytes(domain).length >= 3, "Domain requires at least 3 characters");	
 		
 		require(StringUtil.dotCount(domain) == 0, "Domain not support");
 
@@ -2660,6 +2721,9 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
      * End: set and get Reverses
      */
 		
+	/**
+     * Begin: Subdomain
+     */
     function registerSubDomain(address to, uint256 tokenId, string memory sub) external 
         onlyApprovedOrOwner(tokenId) 
     {
@@ -2671,7 +2735,7 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
         _burnSubDomain(tokenId, sub);
     }
 	
-	 function _safeMintSubDomain(address to, uint256 tokenId, string memory sub, bytes memory _data) internal {
+	function _safeMintSubDomain(address to, uint256 tokenId, string memory sub, bytes memory _data) internal {
 		require(to != address(0));
         require (bytes(sub).length != 0);
         require (StringUtil.dotCount(sub) == 0);
@@ -2700,8 +2764,8 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 
         emit NewURI(_newTokenId, string(_newUri));
     }
-
-    function _burnSubDomain(uint256 tokenId, string memory sub) internal {
+	
+	function _burnSubDomain(uint256 tokenId, string memory sub) internal {
         string memory _sub = StringUtil.toLower(sub);
 		
         bytes memory _newUri = abi.encodePacked(_sub, ".", _tokenURIs[tokenId]);
@@ -2716,8 +2780,7 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 		
         super._burn(_newTokenId);
     }
-
-    function subTokenIdCount(uint256 tokenId) public view returns (uint256) {
+	function subTokenIdCount(uint256 tokenId) public view returns (uint256) {
         require (_exists(tokenId));
         return _subTokens[tokenId].length();
     }
@@ -2726,7 +2789,14 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
         require (subTokenIdCount(tokenId) > index);
         return _subTokens[tokenId].at(index);
     }
-	
+	/**
+     * End:Subdomain
+     */
+
+  
+	/**
+     * Begin: System
+     */
 	function genTokenId(string memory label) public pure returns(uint256)  {
         require (bytes(label).length != 0);
         return uint256(keccak256(abi.encodePacked(label)));
@@ -2744,7 +2814,9 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage
 	function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {
 		return super.supportsInterface(interfaceId);
 	}
-	
+	/**
+     * End: System
+     */
 	/**
      * Begin: working with metadata like: avatar, cover, email, phone, address, social ...
      */
