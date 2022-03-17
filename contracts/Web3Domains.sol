@@ -2343,7 +2343,7 @@ pragma solidity ^0.8.0;
 
 abstract contract WhiteList is AdminControl {
 
-    mapping(address => uint8) private _whiteList;
+    mapping(address => uint8) public _whiteList;
 	
 	bool public isWhiteListActive = false;
 
@@ -2351,15 +2351,15 @@ abstract contract WhiteList is AdminControl {
         isWhiteListActive = _isWhiteListActive;
     }
 
-    function addWhiteLists(address[] calldata addresses, uint8 numbers) external onlyMinterController {
-        for (uint256 i = 0; i < addresses.length; i++) 
+    function addWhiteLists(address[] calldata accounts, uint8 numbers) external onlyMinterController {
+        for (uint256 i = 0; i < accounts.length; i++) 
 		{
-            _whiteList[addresses[i]] = numbers;
+            _whiteList[accounts[i]] = numbers;
         }
     }
 	
-	function addWhiteList(address _address, uint8 numbers) external onlyMinterController {
-        _whiteList[_address] = numbers;
+	function addWhiteList(address account, uint8 numbers) external onlyMinterController {
+        _whiteList[account] = numbers;
     }
 	
 	function numberInWhiteList(address addr) external view returns (uint8) {
@@ -2367,12 +2367,7 @@ abstract contract WhiteList is AdminControl {
     }
 	
 	function chkInWhiteList(address addr) external view returns (bool) {
-		uint8 _num = _whiteList[addr];
-		bool _isOk = false;
-		if (_num > 0){
-			_isOk = true;
-		}
-        return _isOk;
+        return _whiteList[addr] > 0;
     }
 }
 
@@ -2563,11 +2558,17 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage, W
 		require(_length >= 2, "Domain requires at least 2 characters");	
 		
 	    // Check WhiteList
-		
+		if (isWhiteListActive == true){
+			uint8 numbers = _whiteList[msg.sender];
+			
+			require(numbers > 0, "The address is not in the Whitelist");
+			
+			require(numbers >= balanceOf(msg.sender), "Exceeded max available to purchase");
+		}
 		
 		if (_length == 2)
 		{
-			require(_saleTwoCharIsActive, "2 Character domain names need to be allowed to buy");
+			require(_saleTwoCharIsActive == true, "2 Character domain names need to be allowed to buy");
 			
 			require(msg.value >= getPrice().mul(_2chartimes), "Insufficient Token or Token value sent is not correct");
 		}
