@@ -2393,7 +2393,7 @@ contract Web3Domains is ERC721, ERC721Enumerable, AdminControl, RecordStorage, W
 	
 	bool public _saleIsActive = true;
 	
-	bool private _saleTwoCharIsActive = false;
+	bool public _saleTwoCharIsActive = false;
 
 	uint256 private _price = 1 ether;
 	
