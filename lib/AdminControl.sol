@@ -27,7 +27,7 @@ contract AdminControl is Ownable {
       _grantRole(msg.sender);
     }
 
-    function grantMinterRole (address account) public  onlyOwner {
+    function grantMinterRole(address account) public onlyOwner {
       _grantRole(account);
     }
 
